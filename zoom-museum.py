@@ -1,8 +1,23 @@
+#!/bin/python3
 from bs4 import BeautifulSoup
 import requests, re, sys, argparse
 from datetime import date, timedelta
 from email.mime.text import MIMEText
 from subprocess import Popen, PIPE
+from pathlib import Path
+
+filename = Path("zoom_museum_matches.txt")
+
+def hitWasAlreadyMatched(day, time):
+    if not filename.is_file():
+        return False
+    else:
+        with open(filename,"r") as file:
+            lines = file.readlines()
+        for line in lines:
+            if day in line and time in line:
+                return True
+            else: return False
 
 parser = argparse.ArgumentParser(
                     prog='Zoom Museum Slot Finder')
@@ -15,10 +30,11 @@ parser.add_argument('-r', '--recipients', default=[], action='append', required=
 args = parser.parse_args()
 
 todaysDate = date.today()
-endDate = todaysDate + timedelta(days=args.days_delta)adults = args.adults
+endDate = todaysDate + timedelta(days=args.days_delta)
+adults = args.adults
 children = args.children
-dayWanted = args.day
-hourWanted = args.hour
+dayWanted = args.day # e.g. Mon, Tue, Wed, etc.
+hourWanted = args.hour # e.g. 10:00
 URL = "https://www.kindermuseum.at/jart/prj3/zoom/main.jart?reserve-mode=active&rel=en&content-id=1544632271878&do-search=yes&OrganizationStructureIdList=65ae9712-daba-4f39-9a44-31eb9d56ded0&StartDate=" + str(todaysDate) + "&EndDate=" + str(endDate) + "&anzahl-kinder=" + str(children) + "&anzahl-erwachsene=" + str(adults)
 
 msg = MIMEText(
@@ -32,7 +48,7 @@ msg = MIMEText(
         hourWanted +
         " for the Zoom Museum!\n\nBook here: " +
         URL)
-msg["From"] = "aValid@address.com"
+msg["From"] = "QTPI <sibalotte@gmail.com>"
 msg['To'] = ', '.join(args.recipients)
 
 html_document = requests.get(URL,timeout=30).text
@@ -40,9 +56,15 @@ html_document = requests.get(URL,timeout=30).text
 soup = BeautifulSoup(html_document, 'html.parser')
 results = soup.find_all(attrs={'class':['item']})
 
-for result in results:
-        if dayWanted in str(result) and hourWanted in str(result):
-                dateFound = re.search(r'\w{3}, \d{2}\. \w+ \d{4}', str(result)).group(0)
-                msg["Subject"] = "Zoom Museum Ocean opening (" + str(dateFound) + ")"
-                p = Popen(["/usr/sbin/sendmail", "-t", "-oi"], stdin=PIPE)
-                p.communicate(msg.as_bytes())
+if len(results)>0:
+    for result in results:
+            if dayWanted in str(result) and hourWanted in str(result):
+                if hitWasAlreadyMatched(day = dayWanted, time = hourWanted):
+                	continue
+                else:
+                    dateFound = re.search(r'\w{3}, \d{2}\. \w+ \d{4}', str(result)).group(0)
+                    msg["Subject"] = "Zoom Museum Ocean opening (" + str(dateFound) + ")"
+                    p = Popen(["/usr/sbin/sendmail", "-t", "-oi"], stdin=PIPE)
+                    p.communicate(msg.as_bytes())
+                    with open(filename, "a") as file:
+                        file.write(dayWanted + ", " + hourWanted)

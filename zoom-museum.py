@@ -47,7 +47,7 @@ msg = MIMEText(
         hourWanted +
         " for the Zoom Museum!\n\nBook here: " +
         URL)
-msg["From"] = "QTPI <sibalotte@gmail.com>"
+msg["From"] = "me <me@me.org>"
 msg['To'] = ', '.join(args.recipients)
 
 html_document = requests.get(URL,timeout=30).text
